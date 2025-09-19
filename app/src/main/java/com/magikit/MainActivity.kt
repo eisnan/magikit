@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -130,7 +131,7 @@ fun MainMenu(
                         CardSelectionHistory.add(card.code)
                         onPickCard(card.code)
                     },
-                elevation = androidx.compose.material3.CardDefaults.cardElevation(8.dp)
+                elevation = CardDefaults.cardElevation(8.dp)
             ) {
                 Box(
                     modifier = Modifier
@@ -147,7 +148,7 @@ fun MainMenu(
                     .weight(1f)
                     .fillMaxWidth()
                     .clickable { onShowAllCards() },
-                elevation = androidx.compose.material3.CardDefaults.cardElevation(8.dp)
+                elevation = CardDefaults.cardElevation(8.dp)
             ) {
                 Box(
                     modifier = Modifier
@@ -164,7 +165,7 @@ fun MainMenu(
                     .weight(1f)
                     .fillMaxWidth()
                     .clickable { /* TODO: Implement training action */ },
-                elevation = androidx.compose.material3.CardDefaults.cardElevation(8.dp)
+                elevation = CardDefaults.cardElevation(8.dp)
             ) {
                 Box(
                     modifier = Modifier
