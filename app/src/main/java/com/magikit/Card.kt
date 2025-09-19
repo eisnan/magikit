@@ -57,3 +57,5 @@ enum class Card(val code: String, @DrawableRes val drawableRes: Int) {
     DQ("QD", R.drawable.dq),
     DK("KD", R.drawable.dk);
 }
+
+data class DraggableCard(val id: Int, val card: Card)

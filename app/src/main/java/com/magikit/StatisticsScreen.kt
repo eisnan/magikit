@@ -1,0 +1,84 @@
+package com.magikit
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.material3.Button
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.magikit.data.CardSelectionStat
+import com.magikit.data.CardSelectionStatDao
+import kotlinx.coroutines.launch
+
+@Composable
+fun StatisticsScreen(onBack: () -> Unit, statDao: CardSelectionStatDao) {
+    var isBackPressed by remember { mutableStateOf(false) }
+    var stats by remember { mutableStateOf<List<CardSelectionStat>>(emptyList()) }
+    val scope = rememberCoroutineScope()
+    LaunchedEffect(Unit) {
+        scope.launch {
+            stats = statDao.getAllStatsDesc()
+        }
+    }
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text("Statistics", modifier = Modifier.padding(bottom = 16.dp))
+        if (stats.isEmpty()) {
+            Text("No cards have been picked yet.")
+        } else {
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(2),
+                modifier = Modifier.weight(1f).padding(horizontal = 2.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+                horizontalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                items(stats) { stat ->
+                    val card = Card.entries.find { it.code == stat.cardCode }
+                    if (card != null) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.padding(8.dp)
+                        ) {
+                            Text(
+                                text = Deck.toSymbol(card),
+                                modifier = Modifier.padding(top = 4.dp),
+                                fontSize = 35.sp
+                            )
+                            Text(
+                                text = "${stat.count} times",
+                                modifier = Modifier.padding(top = 2.dp),
+                                fontSize = 35.sp
+                            )
+                        }
+                    }
+                }
+            }
+        }
+        Button(
+            onClick = {
+                isBackPressed = true
+                onBack()
+            },
+            enabled = !isBackPressed,
+            modifier = Modifier.padding(top = 16.dp)
+        ) {
+            Text("Back")
+        }
+    }
+}
