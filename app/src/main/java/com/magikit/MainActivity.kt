@@ -1,5 +1,6 @@
 package com.magikit
 
+import android.app.Application
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -25,22 +26,31 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.lifecycleScope
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import androidx.navigation.NavType
 import androidx.navigation.navArgument
+import com.magikit.data.AppDatabase
+import com.magikit.data.CardSelectionStat
+import com.magikit.data.CardSelectionStatDao
 import com.magikit.ui.theme.MagikitTheme
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 enum class NotationType { CHSD, SYMBOL }
 
@@ -53,8 +63,13 @@ object CardSelectionHistory {
 }
 
 class MainActivity : ComponentActivity() {
+    private lateinit var db: AppDatabase
+    private lateinit var statDao: CardSelectionStatDao
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        db = AppDatabase.getInstance(applicationContext)
+        statDao = db.cardSelectionStatDao()
         enableEdgeToEdge()
         setContent {
             MagikitTheme {
@@ -68,7 +83,17 @@ class MainActivity : ComponentActivity() {
                         composable("main") {
                             MainMenu(
                                 onShowAllCards = { navController.navigate("all_cards") },
-                                onPickCard = { cardCode -> navController.navigate("picked_card/$cardCode") },
+                                onPickCard = { cardCode ->
+                                    lifecycleScope.launch(Dispatchers.IO) {
+                                        val stat = statDao.getStat(cardCode)
+                                        if (stat == null) {
+                                            statDao.insert(CardSelectionStat(cardCode, 1))
+                                        } else {
+                                            statDao.incrementCount(cardCode)
+                                        }
+                                    }
+                                    navController.navigate("picked_card/$cardCode")
+                                },
                                 onShowStatistics = { navController.navigate("statistics") }
                             )
                         }
@@ -80,10 +105,15 @@ class MainActivity : ComponentActivity() {
                             arguments = listOf(navArgument("cardCode") { type = NavType.StringType })
                         ) { backStackEntry ->
                             val cardCode = backStackEntry.arguments?.getString("cardCode")
-                            PickedCardScreen(cardCode = cardCode, onBack = { navController.popBackStack() }, onShowStatistics = { navController.navigate("statistics") })
+                            PickedCardScreen(
+                                cardCode = cardCode,
+                                onBack = { navController.popBackStack() },
+                                onShowStatistics = { navController.navigate("statistics") },
+                                statDao = statDao
+                            )
                         }
                         composable("statistics") {
-                            StatisticsScreen(onBack = { navController.popBackStack() })
+                            StatisticsScreen(onBack = { navController.popBackStack() }, statDao = statDao)
                         }
                     }
                 }
@@ -123,70 +153,6 @@ fun MainMenu(
             Button(onClick = { /* TODO */ }, modifier = Modifier.padding(8.dp)) {
                 Text("Train your stack")
             }
-        }
-    }
-}
-
-@Composable
-fun PickedCardScreen(cardCode: String?, onBack: () -> Unit, onShowStatistics: () -> Unit) {
-    val deck = remember { Deck() }
-    var currentCardCode by remember { mutableStateOf(cardCode) }
-    var notation by remember { mutableStateOf(NotationType.SYMBOL) }
-    val card = Card.entries.find { it.code == currentCardCode }
-    val displayCard = card?.let {
-        when (notation) {
-            NotationType.CHSD -> it.code
-            NotationType.SYMBOL -> Deck.toSymbol(it)
-        }
-    } ?: "Unknown"
-
-    Box(modifier = Modifier.fillMaxSize()) {
-        Column(modifier = Modifier.fillMaxSize()) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Button(onClick = onBack, modifier = Modifier.padding(8.dp)) {
-                    Text("Back")
-                }
-                Button(onClick = {
-                    notation = if (notation == NotationType.CHSD) NotationType.SYMBOL else NotationType.CHSD
-                }, modifier = Modifier.padding(8.dp)) {
-                    Text(
-                        when (notation) {
-                            NotationType.CHSD -> "CHSD"
-                            NotationType.SYMBOL -> "Symbol"
-                        }
-                    )
-                }
-            }
-            Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-                if (card != null) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.clickable {
-                            val newCard = deck.pickRandomCard()
-                            CardSelectionHistory.add(newCard.code)
-                            currentCardCode = newCard.code
-                        }
-                    ) {
-                        Text("You picked: $displayCard", modifier = Modifier.padding(top = 24.dp))
-                        Image(
-                            painter = painterResource(id = card.drawableRes),
-                            contentDescription = displayCard,
-                            modifier = Modifier.padding(top = 16.dp)
-                        )
-                        Text("Click on the card to cut to a new card", modifier = Modifier.padding(top = 24.dp))
-                    }
-                } else {
-                    Text("Card not found", modifier = Modifier.padding(24.dp))
-                }
-            }
-        }
-        Button(
-            onClick = onShowStatistics,
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(16.dp)
-        ) {
-            Text("Statistics")
         }
     }
 }
@@ -242,21 +208,21 @@ fun AllCardsScreen(onBack: () -> Unit) {
 }
 
 @Composable
-fun StatisticsScreen(onBack: () -> Unit) {
+fun StatisticsScreen(onBack: () -> Unit, statDao: CardSelectionStatDao) {
     var isBackPressed by remember { mutableStateOf(false) }
-    // Count occurrences of each card code
-    val cardCounts = remember {
-        CardSelectionHistory.history.groupingBy { it }.eachCount()
+    var stats by remember { mutableStateOf<List<CardSelectionStat>>(emptyList()) }
+    val scope = rememberCoroutineScope()
+    LaunchedEffect(Unit) {
+        scope.launch {
+            stats = statDao.getAllStatsDesc()
+        }
     }
-    val cardsWithCounts = Card.entries.map { card ->
-        card to (cardCounts[card.code] ?: 0)
-    }.filter { it.second > 0 }
     Column(
         modifier = Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text("Statistics", modifier = Modifier.padding(bottom = 16.dp))
-        if (cardsWithCounts.isEmpty()) {
+        if (stats.isEmpty()) {
             Text("No cards have been picked yet.")
         } else {
             LazyVerticalGrid(
@@ -265,21 +231,24 @@ fun StatisticsScreen(onBack: () -> Unit) {
                 verticalArrangement = Arrangement.spacedBy(2.dp),
                 horizontalArrangement = Arrangement.spacedBy(2.dp)
             ) {
-                items(cardsWithCounts.sortedByDescending { it.second }) { (card, count) ->
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.padding(8.dp)
-                    ) {
-                        Text(
-                            text = Deck.toSymbol(card),
-                            modifier = Modifier.padding(top = 4.dp),
-                            fontSize = 35.sp
-                        )
-                        Text(
-                            text = "$count times",
-                            modifier = Modifier.padding(top = 2.dp),
-                            fontSize = 35.sp
-                        )
+                items(stats) { stat ->
+                    val card = Card.entries.find { it.code == stat.cardCode }
+                    if (card != null) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.padding(8.dp)
+                        ) {
+                            Text(
+                                text = Deck.toSymbol(card),
+                                modifier = Modifier.padding(top = 4.dp),
+                                fontSize = 35.sp
+                            )
+                            Text(
+                                text = "${stat.count} times",
+                                modifier = Modifier.padding(top = 2.dp),
+                                fontSize = 35.sp
+                            )
+                        }
                     }
                 }
             }
