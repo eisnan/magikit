@@ -5,6 +5,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,7 +16,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.itemsIndexed
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -31,12 +34,23 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.NavType
+import androidx.navigation.navArgument
 import com.magikit.ui.theme.MagikitTheme
 
 enum class NotationType { CHSD, SYMBOL }
+
+object CardSelectionHistory {
+    private val _history = mutableListOf<String>()
+    val history: List<String> get() = _history
+    fun add(cardCode: String) {
+        _history.add(cardCode)
+    }
+}
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -53,11 +67,23 @@ class MainActivity : ComponentActivity() {
                     ) {
                         composable("main") {
                             MainMenu(
-                                onShowAllCards = { navController.navigate("all_cards") }
+                                onShowAllCards = { navController.navigate("all_cards") },
+                                onPickCard = { cardCode -> navController.navigate("picked_card/$cardCode") },
+                                onShowStatistics = { navController.navigate("statistics") }
                             )
                         }
                         composable("all_cards") {
                             AllCardsScreen(onBack = { navController.popBackStack() })
+                        }
+                        composable(
+                            "picked_card/{cardCode}",
+                            arguments = listOf(navArgument("cardCode") { type = NavType.StringType })
+                        ) { backStackEntry ->
+                            val cardCode = backStackEntry.arguments?.getString("cardCode")
+                            PickedCardScreen(cardCode = cardCode, onBack = { navController.popBackStack() }, onShowStatistics = { navController.navigate("statistics") })
+                        }
+                        composable("statistics") {
+                            StatisticsScreen(onBack = { navController.popBackStack() })
                         }
                     }
                 }
@@ -67,46 +93,15 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun MainMenu(modifier: Modifier = Modifier, onShowAllCards: () -> Unit = {}) {
+fun MainMenu(
+    modifier: Modifier = Modifier,
+    onShowAllCards: () -> Unit = {},
+    onPickCard: (String) -> Unit = {},
+    onShowStatistics: () -> Unit = {}
+) {
     val deck = remember { Deck() }
-    var selectedCard by remember { mutableStateOf<Card?>(null) }
-    var notation by remember { mutableStateOf(NotationType.CHSD) }
-    val notationOptions = listOf(NotationType.CHSD, NotationType.SYMBOL)
-    var expanded by remember { mutableStateOf(false) }
 
     Box(modifier = modifier.fillMaxSize()) {
-        // Dropdown at top right
-        Box(modifier = Modifier
-            .align(Alignment.TopEnd)
-            .padding(16.dp)) {
-            Button(onClick = { expanded = true }) {
-                Text(
-                    when (notation) {
-                        NotationType.CHSD -> "CHSD"
-                        NotationType.SYMBOL -> "Symbol"
-                    }
-                )
-            }
-            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-                notationOptions.forEach { option ->
-                    DropdownMenuItem(
-                        text = {
-                            Text(
-                                when (option) {
-                                    NotationType.CHSD -> "CHSD"
-                                    NotationType.SYMBOL -> "Symbol"
-                                }
-                            )
-                        },
-                        onClick = {
-                            notation = option
-                            expanded = false
-                        }
-                    )
-                }
-            }
-        }
-        // Main content
         Column(
             modifier = Modifier.align(Alignment.Center),
             verticalArrangement = Arrangement.Center,
@@ -114,23 +109,13 @@ fun MainMenu(modifier: Modifier = Modifier, onShowAllCards: () -> Unit = {}) {
         ) {
             Button(
                 onClick = {
-                    selectedCard = deck.pickRandomCard()
+                    val card = deck.pickRandomCard()
+                    CardSelectionHistory.add(card.code)
+                    onPickCard(card.code)
                 },
                 modifier = Modifier.padding(8.dp)
             ) {
                 Text("Pick a card")
-            }
-            if (selectedCard != null) {
-                val displayCard = when (notation) {
-                    NotationType.CHSD -> selectedCard!!.code
-                    NotationType.SYMBOL -> Deck.toSymbol(selectedCard!!)
-                }
-                Text("You picked: $displayCard", modifier = Modifier.padding(top = 24.dp))
-                Image(
-                    painter = painterResource(id = selectedCard!!.drawableRes),
-                    contentDescription = displayCard,
-                    modifier = Modifier.padding(top = 16.dp)
-                )
             }
             Button(onClick = { onShowAllCards() }, modifier = Modifier.padding(8.dp)) {
                 Text("Design your stack")
@@ -139,7 +124,70 @@ fun MainMenu(modifier: Modifier = Modifier, onShowAllCards: () -> Unit = {}) {
                 Text("Train your stack")
             }
         }
+    }
+}
 
+@Composable
+fun PickedCardScreen(cardCode: String?, onBack: () -> Unit, onShowStatistics: () -> Unit) {
+    val deck = remember { Deck() }
+    var currentCardCode by remember { mutableStateOf(cardCode) }
+    var notation by remember { mutableStateOf(NotationType.SYMBOL) }
+    val card = Card.entries.find { it.code == currentCardCode }
+    val displayCard = card?.let {
+        when (notation) {
+            NotationType.CHSD -> it.code
+            NotationType.SYMBOL -> Deck.toSymbol(it)
+        }
+    } ?: "Unknown"
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Button(onClick = onBack, modifier = Modifier.padding(8.dp)) {
+                    Text("Back")
+                }
+                Button(onClick = {
+                    notation = if (notation == NotationType.CHSD) NotationType.SYMBOL else NotationType.CHSD
+                }, modifier = Modifier.padding(8.dp)) {
+                    Text(
+                        when (notation) {
+                            NotationType.CHSD -> "CHSD"
+                            NotationType.SYMBOL -> "Symbol"
+                        }
+                    )
+                }
+            }
+            Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                if (card != null) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.clickable {
+                            val newCard = deck.pickRandomCard()
+                            CardSelectionHistory.add(newCard.code)
+                            currentCardCode = newCard.code
+                        }
+                    ) {
+                        Text("You picked: $displayCard", modifier = Modifier.padding(top = 24.dp))
+                        Image(
+                            painter = painterResource(id = card.drawableRes),
+                            contentDescription = displayCard,
+                            modifier = Modifier.padding(top = 16.dp)
+                        )
+                        Text("Click on the card to cut to a new card", modifier = Modifier.padding(top = 24.dp))
+                    }
+                } else {
+                    Text("Card not found", modifier = Modifier.padding(24.dp))
+                }
+            }
+        }
+        Button(
+            onClick = onShowStatistics,
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(16.dp)
+        ) {
+            Text("Statistics")
+        }
     }
 }
 
@@ -189,6 +237,62 @@ fun AllCardsScreen(onBack: () -> Unit) {
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun StatisticsScreen(onBack: () -> Unit) {
+    var isBackPressed by remember { mutableStateOf(false) }
+    // Count occurrences of each card code
+    val cardCounts = remember {
+        CardSelectionHistory.history.groupingBy { it }.eachCount()
+    }
+    val cardsWithCounts = Card.entries.map { card ->
+        card to (cardCounts[card.code] ?: 0)
+    }.filter { it.second > 0 }
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text("Statistics", modifier = Modifier.padding(bottom = 16.dp))
+        if (cardsWithCounts.isEmpty()) {
+            Text("No cards have been picked yet.")
+        } else {
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(2),
+                modifier = Modifier.weight(1f).padding(horizontal = 2.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+                horizontalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                items(cardsWithCounts.sortedByDescending { it.second }) { (card, count) ->
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.padding(8.dp)
+                    ) {
+                        Text(
+                            text = Deck.toSymbol(card),
+                            modifier = Modifier.padding(top = 4.dp),
+                            fontSize = 35.sp
+                        )
+                        Text(
+                            text = "$count times",
+                            modifier = Modifier.padding(top = 2.dp),
+                            fontSize = 35.sp
+                        )
+                    }
+                }
+            }
+        }
+        Button(
+            onClick = {
+                isBackPressed = true
+                onBack()
+            },
+            enabled = !isBackPressed,
+            modifier = Modifier.padding(top = 16.dp)
+        ) {
+            Text("Back")
         }
     }
 }
