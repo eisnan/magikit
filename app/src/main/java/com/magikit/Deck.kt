@@ -3,20 +3,18 @@ package com.magikit
 import kotlin.random.Random
 
 class Deck {
-    private val suits = listOf("C", "H", "S", "D")
-    private val ranks = listOf("A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K")
-    private val cards = suits.flatMap { suit -> ranks.map { rank -> "$rank$suit" } }
+    private val cards = Card.entries.toList()
 
-    fun pickRandomCard(): String {
+    fun pickRandomCard(): Card {
         return cards[Random.nextInt(cards.size)]
     }
 
     companion object {
-        fun toSymbol(card: String): String {
-            if (card.length < 2) return card
-            val rank = card.dropLast(1)
-            val suitChar = card.last()
-            val symbol = when (suitChar) {
+        fun toSymbol(card: Card): String {
+            val code = card.code
+            val rank = code.dropLast(1)
+            val suitChar = code.last()
+            val symbol = when (suitChar.uppercaseChar()) {
                 'C' -> '\u2663'
                 'H' -> '\u2665'
                 'S' -> '\u2660'
@@ -24,13 +22,6 @@ class Deck {
                 else -> suitChar
             }
             return "$rank$symbol"
-        }
-        // Returns the drawable resource name for a card (e.g., "h10" for Ten of Hearts, "sa" for Ace of Spades)
-        fun getDrawableName(card: String): String {
-            if (card.length < 2) return card.lowercase()
-            val rank = card.dropLast(1).lowercase()
-            val suit = card.last().lowercaseChar()
-            return "$suit$rank"
         }
     }
 }
