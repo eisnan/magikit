@@ -56,5 +56,3 @@ enum class Card(val code: String, @DrawableRes val drawableRes: Int, val newDeck
     DQ("QD", R.drawable.dq, 28),
     DK("KD", R.drawable.dk, 27);
 }
-
-data class DraggableCard(val id: Int, val card: Card)

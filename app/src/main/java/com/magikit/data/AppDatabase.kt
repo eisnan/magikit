@@ -5,9 +5,10 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 
-@Database(entities = [CardSelectionStat::class], version = 1)
+@Database(entities = [CardSelectionStat::class, StackPosition::class], version = 2)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun cardSelectionStatDao(): CardSelectionStatDao
+    abstract fun stackPositionDao(): StackPositionDao
 
     companion object {
         @Volatile
@@ -19,11 +20,12 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "card_stats_db"
-                ).build()
+                )
+                .fallbackToDestructiveMigration() // Allow destructive migration for schema changes
+                .build()
                 INSTANCE = instance
                 instance
             }
         }
     }
 }
-

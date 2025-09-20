@@ -33,17 +33,40 @@ import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.runtime.LaunchedEffect
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import androidx.compose.ui.platform.LocalContext
+import com.magikit.data.AppDatabase
+import com.magikit.data.StackPosition
 
 @Composable
 fun AllCardsScreen(onBack: () -> Unit) {
     val spotCount = 52
-    val cardSize = 80.dp
+    val cardSize = 240.dp
     var showDialog by remember { mutableStateOf(false) }
     var selectedSpot by remember { mutableStateOf<Int?>(null) }
     var assignedCards by remember { mutableStateOf(List<Card?>(spotCount) { null }) }
+
+    val context = LocalContext.current
+    val saveScope = remember { CoroutineScope(Dispatchers.IO) }
+
+    // Load stack from DB on first composition
+    LaunchedEffect(Unit) {
+        val db = AppDatabase.getInstance(context)
+        val stackDao = db.stackPositionDao()
+        val savedStack = stackDao.getAll()
+        if (savedStack.isNotEmpty()) {
+            assignedCards = List(spotCount) { idx ->
+                val pos = savedStack.find { it.position == idx }
+                pos?.cardCode?.let { code -> Card.entries.find { it.code == code } }
+            }
+        }
+    }
 
     // Cards not yet assigned to any spot
     val availableCards = remember(assignedCards) {
@@ -51,15 +74,33 @@ fun AllCardsScreen(onBack: () -> Unit) {
             .sortedBy { it.newDeckOrderIndex }
     }
 
+    val cellWidth = 120.dp
+    val cellHeight = 120.dp
+    val imageSize = 120.dp
+
     Column(modifier = Modifier.fillMaxSize()) {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Button(onClick = onBack, modifier = Modifier.padding(8.dp)) {
                 Text("Back")
             }
-            Button(onClick = onBack, modifier = Modifier.padding(8.dp)) {
+            Button(
+                onClick = {
+                    // Randomly assign cards to all spots
+                    val shuffled = Card.entries.shuffled()
+                    assignedCards = shuffled.take(spotCount)
+                },
+                modifier = Modifier.padding(8.dp)
+            ) {
                 Text("I'm feeling lucky")
             }
-            Button(onClick = onBack, modifier = Modifier.padding(8.dp)) {
+            Button(
+                onClick = {
+                    saveScope.launch {
+                        saveStackToDatabase(context, assignedCards)
+                    }
+                },
+                modifier = Modifier.padding(8.dp)
+            ) {
                 Text("Save stack")
             }
         }
@@ -67,37 +108,40 @@ fun AllCardsScreen(onBack: () -> Unit) {
             columns = GridCells.Fixed(4),
             modifier = Modifier
                 .weight(1f)
-                .padding(8.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+                .padding(1.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             items(spotCount) { index ->
                 Box(
                     modifier = Modifier
-                        .size(cardSize)
+                        .width(cellWidth)
+                        .height(cellHeight)
                         .clickable {
                             selectedSpot = index
                             showDialog = true
-                        }
+                        },
+                    contentAlignment = Alignment.Center
                 ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center,
+                        modifier = Modifier.fillMaxSize()
+                    ) {
                         Text(
                             (index + 1).toString(),
-                            modifier = Modifier.align(Alignment.CenterHorizontally)
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold
                         )
                         if (assignedCards[index] != null) {
                             Image(
                                 painter = painterResource(assignedCards[index]!!.drawableRes),
                                 contentDescription = assignedCards[index]!!.code,
-                                modifier = Modifier
-                                    .size(cardSize / 2)
-                                    .align(Alignment.CenterHorizontally)
+                                modifier = Modifier.size(imageSize)
                             )
                         } else {
                             Box(
-                                modifier = Modifier
-                                    .size(cardSize / 2)
-                                    .align(Alignment.CenterHorizontally)
+                                modifier = Modifier.size(imageSize)
                             )
                         }
                     }
@@ -152,4 +196,14 @@ fun AllCardsScreen(onBack: () -> Unit) {
             }
         }
     }
+}
+
+suspend fun saveStackToDatabase(context: android.content.Context, cards: List<Card?>) {
+    val db = AppDatabase.getInstance(context)
+    val stackDao = db.stackPositionDao()
+    stackDao.clearAll()
+    val stack = cards.mapIndexed { idx, card ->
+        StackPosition(position = idx, cardCode = card?.code)
+    }
+    stackDao.insertAll(stack)
 }
