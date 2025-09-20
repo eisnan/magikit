@@ -3,6 +3,7 @@ package com.magikit
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -47,7 +48,6 @@ import com.magikit.data.StackPosition
 @Composable
 fun AllCardsScreen(onBack: () -> Unit) {
     val spotCount = 52
-    val cardSize = 240.dp
     var showDialog by remember { mutableStateOf(false) }
     var selectedSpot by remember { mutableStateOf<Int?>(null) }
     var assignedCards by remember { mutableStateOf(List<Card?>(spotCount) { null }) }
@@ -117,10 +117,17 @@ fun AllCardsScreen(onBack: () -> Unit) {
                     modifier = Modifier
                         .width(cellWidth)
                         .height(cellHeight)
-                        .clickable {
-                            selectedSpot = index
-                            showDialog = true
-                        },
+                        .combinedClickable(
+                            onClick = {
+                                if (availableCards.isNotEmpty()) {
+                                    selectedSpot = index
+                                    showDialog = true
+                                }
+                            },
+                            onLongClick = {
+                                assignedCards = assignedCards.toMutableList().also { it[index] = null }
+                            }
+                        ),
                     contentAlignment = Alignment.Center
                 ) {
                     Column(
@@ -179,11 +186,6 @@ fun AllCardsScreen(onBack: () -> Unit) {
                                     painter = painterResource(card.drawableRes),
                                     contentDescription = card.code,
                                     modifier = Modifier.size(60.dp)
-                                )
-                                Text(
-                                    card.newDeckOrderIndex.toString(),
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold
                                 )
                             }
                         }

@@ -2,7 +2,9 @@ package com.magikit
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -26,7 +28,6 @@ import kotlinx.coroutines.launch
 
 @Composable
 fun StatisticsScreen(onBack: () -> Unit, statDao: CardSelectionStatDao) {
-    var isBackPressed by remember { mutableStateOf(false) }
     var stats by remember { mutableStateOf<List<CardSelectionStat>>(emptyList()) }
     val scope = rememberCoroutineScope()
     LaunchedEffect(Unit) {
@@ -38,6 +39,14 @@ fun StatisticsScreen(onBack: () -> Unit, statDao: CardSelectionStatDao) {
         modifier = Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(8.dp),
+            horizontalArrangement = Arrangement.Start
+        ) {
+            Button(onClick = onBack) {
+                Text("Back")
+            }
+        }
         Text("Statistics", modifier = Modifier.padding(bottom = 16.dp))
         if (stats.isEmpty()) {
             Text("No cards have been picked yet.")
@@ -69,16 +78,6 @@ fun StatisticsScreen(onBack: () -> Unit, statDao: CardSelectionStatDao) {
                     }
                 }
             }
-        }
-        Button(
-            onClick = {
-                isBackPressed = true
-                onBack()
-            },
-            enabled = !isBackPressed,
-            modifier = Modifier.padding(top = 16.dp)
-        ) {
-            Text("Back")
         }
     }
 }

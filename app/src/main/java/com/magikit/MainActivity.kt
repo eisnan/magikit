@@ -75,7 +75,8 @@ class MainActivity : ComponentActivity() {
                                     }
                                     navController.navigate("picked_card/$cardCode")
                                 },
-                                onShowStatistics = { navController.navigate("statistics") }
+                                onShowStatistics = { navController.navigate("statistics") },
+                                onTrainYourStack = { navController.navigate("train_your_stack") }
                             )
                         }
                         composable("all_cards") {
@@ -96,6 +97,9 @@ class MainActivity : ComponentActivity() {
                         composable("statistics") {
                             StatisticsScreen(onBack = { navController.popBackStack() }, statDao = statDao)
                         }
+                        composable("train_your_stack") {
+                            TrainYourStackScreen(onBack = { navController.popBackStack() })
+                        }
                     }
                 }
             }
@@ -108,7 +112,8 @@ fun MainMenu(
     modifier: Modifier = Modifier,
     onShowAllCards: () -> Unit = {},
     onPickCard: (String) -> Unit = {},
-    onShowStatistics: () -> Unit = {}
+    onShowStatistics: () -> Unit = {},
+    onTrainYourStack: () -> Unit = {}
 ) {
     val deck = remember { Deck() }
 
@@ -164,7 +169,7 @@ fun MainMenu(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
-                    .clickable { /* TODO: Implement training action */ },
+                    .clickable { onTrainYourStack() },
                 elevation = CardDefaults.cardElevation(8.dp)
             ) {
                 Box(
