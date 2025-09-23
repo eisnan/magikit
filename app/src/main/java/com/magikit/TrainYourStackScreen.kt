@@ -32,6 +32,8 @@ fun TrainYourStackScreen(onBack: () -> Unit = {}) {
     var feedback by remember { mutableStateOf("") }
     var showDialog by remember { mutableStateOf(false) }
     var allCards by remember { mutableStateOf(Card.entries.toList()) }
+    var revealed by remember { mutableStateOf(false) }
+    var answered by remember { mutableStateOf(false) }
 
     // Load stack from DB on first composition
     LaunchedEffect(Unit) {
@@ -63,6 +65,7 @@ fun TrainYourStackScreen(onBack: () -> Unit = {}) {
                 val (index, cardCode) = currentQuestion!!
                 // Find the selected card based on the answer
                 val selectedCard = allCards.find { it.code == answer }
+                val correctCard = allCards.find { it.code == cardCode }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
                         text = "Which card is at position ${index + 1}?",
@@ -73,40 +76,57 @@ fun TrainYourStackScreen(onBack: () -> Unit = {}) {
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
+                        val imageCard = if (revealed) correctCard else selectedCard
                         Image(
-                            painter = painterResource(selectedCard?.drawableRes ?: R.drawable.brb),
-                            contentDescription = selectedCard?.code ?: "",
+                            painter = painterResource(imageCard?.drawableRes ?: R.drawable.brb),
+                            contentDescription = imageCard?.code ?: "",
                             modifier = Modifier.size(100.dp)
                                 .combinedClickable( onClick = {
                                         showDialog = true
+                                        revealed = false
                                 })
                         )
                     }
                     Spacer(modifier = Modifier.height(16.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Button(onClick = {
-                            feedback = ""
-                            if (answer.isNotEmpty()) {
-                                if (answer == cardCode) {
-                                    feedback = "Correct!"
+                    if (!answered) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Button(onClick = {
+                                feedback = ""
+                                if (answer.isNotEmpty()) {
+                                    if (answer == cardCode) {
+                                        feedback = "Correct!"
+                                    } else {
+                                        feedback = "Incorrect. The correct card is ${Deck.toSymbol(correctCard!!)}."
+                                    }
+                                    answered = true
                                 } else {
-                                    val correctCard = allCards.find { it.code == cardCode }
-                                    feedback = "Incorrect. The correct card is ${correctCard?.code ?: cardCode}."
+                                    feedback = "Please select a card."
                                 }
-                            } else {
-                                feedback = "Please select a card."
+                            }) {
+                                Text("Check")
                             }
-                        }) {
-                            Text("Check")
+                            Button(onClick = {
+                                feedback = ""
+                                if (stack.isNotEmpty()) {
+                                    answer = cardCode
+                                    revealed = true
+                                    answered = true
+                                }
+                            }) {
+                                Text("Reveal")
+                            }
                         }
+                    } else {
                         Button(onClick = {
                             feedback = ""
                             if (stack.isNotEmpty()) {
                                 currentQuestion = stack.random()
-                                answer = ""
                             }
+                            answer = ""
+                            revealed = false
+                            answered = false
                         }) {
-                            Text("Reveal")
+                            Text("Next")
                         }
                     }
                     if (feedback.isNotEmpty()) {
@@ -139,8 +159,9 @@ fun TrainYourStackScreen(onBack: () -> Unit = {}) {
                             Column(
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 modifier = Modifier.clickable {
-                                    answer = card.code;
+                                    answer = card.code
                                     showDialog = false
+                                    revealed = false
                                 }
                             ) {
                                 Image(
@@ -152,11 +173,16 @@ fun TrainYourStackScreen(onBack: () -> Unit = {}) {
                         }
                     }
                     Spacer(modifier = Modifier.height(16.dp))
-                    Button(onClick = { showDialog = false; }, modifier = Modifier.align(Alignment.End)) {
+                    Button(onClick = { showDialog = false }, modifier = Modifier.align(Alignment.End)) {
                         Text("Close")
                     }
                 }
             }
         }
+    }
+    LaunchedEffect(currentQuestion) {
+        answer = ""
+        revealed = false
+        answered = false
     }
 }

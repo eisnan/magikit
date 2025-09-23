@@ -81,7 +81,6 @@ fun AllCardsScreen(onBack: () -> Unit) {
             }
             Button(
                 onClick = {
-                    // Randomly assign cards to all spots
                     val shuffled = Card.entries.shuffled()
                     assignedCards = shuffled.take(spotCount)
                 },
