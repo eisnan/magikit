@@ -55,21 +55,21 @@ fun AllCardsScreen(
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Button(
                 onClick = { viewModel.onFeelingLucky() },
-                modifier = Modifier.padding(8.dp)
+                modifier = Modifier.padding(4.dp)
             ) {
                 Text("I'm feeling lucky")
             }
             Button(
                 onClick = { viewModel.onResetStack() },
-                modifier = Modifier.padding(8.dp)
+                modifier = Modifier.padding(4.dp)
             ) {
                 Text("Reset")
             }
             Button(
                 onClick = { viewModel.onSaveStack() },
-                modifier = Modifier.padding(8.dp)
+                modifier = Modifier.padding(4.dp)
             ) {
-                Text("Save stack")
+                Text("Save")
             }
         }
         LazyVerticalGrid(
