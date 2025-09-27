@@ -20,37 +20,25 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import com.magikit.data.AppDatabase
-import com.magikit.data.CardSelectionStat
-import com.magikit.data.CardSelectionStatDao
 import com.magikit.ui.theme.MagikitTheme
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 
 enum class NotationType { CHSD, SYMBOL }
 
 object CardSelectionHistory {
     private val _history = mutableListOf<String>()
-    val history: List<String> get() = _history
     fun add(cardCode: String) {
         _history.add(cardCode)
     }
 }
 
 class MainActivity : ComponentActivity() {
-    private lateinit var db: AppDatabase
-    private lateinit var statDao: CardSelectionStatDao
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        db = AppDatabase.getInstance(applicationContext)
-        statDao = db.cardSelectionStatDao()
         enableEdgeToEdge()
         setContent {
             MagikitTheme {
@@ -65,14 +53,6 @@ class MainActivity : ComponentActivity() {
                             MainMenu(
                                 onShowAllCards = { navController.navigate("all_cards") },
                                 onPickCard = { cardCode ->
-                                    lifecycleScope.launch(Dispatchers.IO) {
-                                        val stat = statDao.getStat(cardCode)
-                                        if (stat == null) {
-                                            statDao.insert(CardSelectionStat(cardCode, 1))
-                                        } else {
-                                            statDao.incrementCount(cardCode)
-                                        }
-                                    }
                                     navController.navigate("picked_card/$cardCode")
                                 },
                                 onShowStatistics = { navController.navigate("statistics") },
@@ -90,12 +70,11 @@ class MainActivity : ComponentActivity() {
                             PickedCardScreen(
                                 cardCode = cardCode,
                                 onBack = { navController.popBackStack() },
-                                onShowStatistics = { navController.navigate("statistics") },
-                                statDao = statDao
+                                onShowStatistics = { navController.navigate("statistics") }
                             )
                         }
                         composable("statistics") {
-                            StatisticsScreen(onBack = { navController.popBackStack() }, statDao = statDao)
+                            StatisticsScreen(onBack = { navController.popBackStack() })
                         }
                         composable("train_your_stack") {
                             TrainYourStackScreen(onBack = { navController.popBackStack() })

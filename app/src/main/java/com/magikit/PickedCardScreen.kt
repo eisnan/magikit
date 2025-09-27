@@ -1,6 +1,5 @@
 package com.magikit
 
-import androidx.activity.ComponentActivity
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -13,31 +12,33 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.lifecycleScope
-import com.magikit.data.CardSelectionStat
-import com.magikit.data.CardSelectionStatDao
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 
 @Composable
 fun PickedCardScreen(
     cardCode: String?,
     onBack: () -> Unit,
-    onShowStatistics: () -> Unit,
-    statDao: CardSelectionStatDao
+    onShowStatistics: () -> Unit
 ) {
-    val deck = remember { Deck() }
-    var currentCardCode by remember { mutableStateOf(cardCode) }
-    var notation by remember { mutableStateOf(NotationType.SYMBOL) }
+    val viewModel: PickedCardViewModel = viewModel(
+        factory = viewModelFactory {
+            initializer {
+                val app = this[ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY] as android.app.Application
+                PickedCardViewModel(app, cardCode)
+            }
+        }
+    )
+    val currentCardCode by viewModel.currentCardCode.collectAsState()
+    val notation by viewModel.notation.collectAsState()
     val card = Card.entries.find { it.code == currentCardCode }
     val displayCard = card?.let {
         when (notation) {
@@ -45,7 +46,6 @@ fun PickedCardScreen(
             NotationType.SYMBOL -> Deck.toSymbol(it)
         }
     } ?: "Unknown"
-    val activity = LocalContext.current as ComponentActivity
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
@@ -53,9 +53,7 @@ fun PickedCardScreen(
                 Button(onClick = onBack, modifier = Modifier.padding(8.dp)) {
                     Text("Back")
                 }
-                Button(onClick = {
-                    notation = if (notation == NotationType.CHSD) NotationType.SYMBOL else NotationType.CHSD
-                }, modifier = Modifier.padding(8.dp)) {
+                Button(onClick = { viewModel.toggleNotation() }, modifier = Modifier.padding(8.dp)) {
                     Text(
                         when (notation) {
                             NotationType.CHSD -> "CHSD"
@@ -69,16 +67,7 @@ fun PickedCardScreen(
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier.clickable {
-                            val newCard = deck.pickRandomCard()
-                            activity.lifecycleScope.launch(Dispatchers.IO) {
-                                val stat = statDao.getStat(newCard.code)
-                                if (stat == null) {
-                                    statDao.insert(CardSelectionStat(newCard.code, 1))
-                                } else {
-                                    statDao.incrementCount(newCard.code)
-                                }
-                            }
-                            currentCardCode = newCard.code
+                            viewModel.pickRandomCardAndUpdateStat()
                         }
                     ) {
                         Text("You picked: $displayCard", modifier = Modifier.padding(top = 24.dp))
@@ -104,4 +93,3 @@ fun PickedCardScreen(
         }
     }
 }
-

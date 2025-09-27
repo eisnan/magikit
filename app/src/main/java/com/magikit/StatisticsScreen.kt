@@ -12,29 +12,20 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.magikit.data.CardSelectionStat
-import com.magikit.data.CardSelectionStatDao
-import kotlinx.coroutines.launch
+import androidx.lifecycle.viewmodel.compose.viewModel
 
 @Composable
-fun StatisticsScreen(onBack: () -> Unit, statDao: CardSelectionStatDao) {
-    var stats by remember { mutableStateOf<List<CardSelectionStat>>(emptyList()) }
-    val scope = rememberCoroutineScope()
-    LaunchedEffect(Unit) {
-        scope.launch {
-            stats = statDao.getAllStatsDesc()
-        }
-    }
+fun StatisticsScreen(
+    onBack: () -> Unit,
+    viewModel: StatisticsViewModel = viewModel()
+) {
+    val stats by viewModel.stats.collectAsState()
     Column(
         modifier = Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally

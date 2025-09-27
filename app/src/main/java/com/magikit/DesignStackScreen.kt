@@ -20,6 +20,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.getValue
@@ -34,41 +35,18 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.runtime.LaunchedEffect
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import androidx.compose.ui.platform.LocalContext
-import com.magikit.data.AppDatabase
-import com.magikit.data.StackPosition
+import androidx.lifecycle.viewmodel.compose.viewModel
 
 @Composable
-fun AllCardsScreen(onBack: () -> Unit) {
+fun AllCardsScreen(
+    onBack: () -> Unit,
+    viewModel: DesignStackViewModel = viewModel()
+) {
     val spotCount = 52
-    var showDialog by remember { mutableStateOf(false) }
-    var selectedSpot by remember { mutableStateOf<Int?>(null) }
-    var assignedCards by remember { mutableStateOf(List<Card?>(spotCount) { null }) }
-
-    val context = LocalContext.current
-    val saveScope = remember { CoroutineScope(Dispatchers.IO) }
-
-    // Load stack from DB on first composition
-    LaunchedEffect(Unit) {
-        val db = AppDatabase.getInstance(context)
-        val stackDao = db.stackPositionDao()
-        val savedStack = stackDao.getAll()
-        if (savedStack.isNotEmpty()) {
-            assignedCards = List(spotCount) { idx ->
-                val pos = savedStack.find { it.position == idx }
-                pos?.cardCode?.let { code -> Card.entries.find { it.code == code } }
-            }
-        }
-    }
-
-    // Cards not yet assigned to any spot
-    val availableCards = remember(assignedCards) {
-        Card.entries.filter { card -> assignedCards.none { it == card } }
-            .sortedBy { it.newDeckOrderIndex }
-    }
+    val showDialog by viewModel.showDialog.collectAsState()
+    val selectedSpot by viewModel.selectedSpot.collectAsState()
+    val assignedCards by viewModel.assignedCards.collectAsState()
+    val availableCards = viewModel.availableCards()
 
     val cellWidth = 120.dp
     val cellHeight = 120.dp
@@ -80,20 +58,13 @@ fun AllCardsScreen(onBack: () -> Unit) {
                 Text("Back")
             }
             Button(
-                onClick = {
-                    val shuffled = Card.entries.shuffled()
-                    assignedCards = shuffled.take(spotCount)
-                },
+                onClick = { viewModel.onFeelingLucky() },
                 modifier = Modifier.padding(8.dp)
             ) {
                 Text("I'm feeling lucky")
             }
             Button(
-                onClick = {
-                    saveScope.launch {
-                        saveStackToDatabase(context, assignedCards)
-                    }
-                },
+                onClick = { viewModel.onSaveStack() },
                 modifier = Modifier.padding(8.dp)
             ) {
                 Text("Save stack")
@@ -113,15 +84,8 @@ fun AllCardsScreen(onBack: () -> Unit) {
                         .width(cellWidth)
                         .height(cellHeight)
                         .combinedClickable(
-                            onClick = {
-                                if (availableCards.isNotEmpty()) {
-                                    selectedSpot = index
-                                    showDialog = true
-                                }
-                            },
-                            onLongClick = {
-                                assignedCards = assignedCards.toMutableList().also { it[index] = null }
-                            }
+                            onClick = { viewModel.onCellClick(index) },
+                            onLongClick = { viewModel.onCellLongClick(index) }
                         ),
                     contentAlignment = Alignment.Center
                 ) {
@@ -153,7 +117,7 @@ fun AllCardsScreen(onBack: () -> Unit) {
     }
 
     if (showDialog && selectedSpot != null) {
-        Dialog(onDismissRequest = { showDialog = false }) {
+        Dialog(onDismissRequest = { viewModel.onDialogDismiss() }) {
             Surface(
                 shape = MaterialTheme.shapes.medium,
                 tonalElevation = 8.dp,
@@ -172,9 +136,7 @@ fun AllCardsScreen(onBack: () -> Unit) {
                             Column(
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 modifier = Modifier.clickable {
-                                    assignedCards = assignedCards.toMutableList().also { it[selectedSpot!!] = card }
-                                    showDialog = false
-                                    selectedSpot = null
+                                    viewModel.onCardSelected(card)
                                 }
                             ) {
                                 Image(
@@ -186,21 +148,11 @@ fun AllCardsScreen(onBack: () -> Unit) {
                         }
                     }
                     Spacer(modifier = Modifier.height(16.dp))
-                    Button(onClick = { showDialog = false; selectedSpot = null }, modifier = Modifier.align(Alignment.End)) {
+                    Button(onClick = { viewModel.onDialogDismiss() }, modifier = Modifier.align(Alignment.End)) {
                         Text("Close")
                     }
                 }
             }
         }
     }
-}
-
-suspend fun saveStackToDatabase(context: android.content.Context, cards: List<Card?>) {
-    val db = AppDatabase.getInstance(context)
-    val stackDao = db.stackPositionDao()
-    stackDao.clearAll()
-    val stack = cards.mapIndexed { idx, card ->
-        StackPosition(position = idx, cardCode = card?.code)
-    }
-    stackDao.insertAll(stack)
 }

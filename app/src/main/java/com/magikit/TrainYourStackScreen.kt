@@ -3,50 +3,47 @@ package com.magikit
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.runtime.*
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.material3.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
-import com.magikit.data.AppDatabase
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.window.Dialog
-import com.magikit.Card
+import androidx.lifecycle.viewmodel.compose.viewModel
 
 @Composable
-fun TrainYourStackScreen(onBack: () -> Unit = {}) {
-    val context = LocalContext.current
-    var stack by remember { mutableStateOf<List<Pair<Int, String>>>(emptyList()) }
-    var currentQuestion by remember { mutableStateOf<Pair<Int, String>?>(null) }
-    var showQuestion by remember { mutableStateOf(false) }
-    var answer by remember { mutableStateOf("") }
-    var feedback by remember { mutableStateOf("") }
-    var showDialog by remember { mutableStateOf(false) }
-    var allCards by remember { mutableStateOf(Card.entries.toList()) }
-    var revealed by remember { mutableStateOf(false) }
-    var answered by remember { mutableStateOf(false) }
-
-    // Load stack from DB on first composition
-    LaunchedEffect(Unit) {
-        val db = AppDatabase.getInstance(context)
-        val stackDao = db.stackPositionDao()
-        val savedStack = withContext(Dispatchers.IO) { stackDao.getAll() }
-        val pairs = savedStack.filter { it.cardCode != null }.map { it.position to it.cardCode!! }
-        stack = pairs
-        if (pairs.isNotEmpty()) {
-            currentQuestion = pairs.random()
-            showQuestion = true
-        }
-    }
+fun TrainYourStackScreen(
+    onBack: () -> Unit = {},
+    viewModel: TrainYourStackViewModel = viewModel()
+) {
+    val currentQuestion by viewModel.currentQuestion.collectAsState()
+    val showQuestion by viewModel.showQuestion.collectAsState()
+    val answer by viewModel.answer.collectAsState()
+    val feedback by viewModel.feedback.collectAsState()
+    val showDialog by viewModel.showDialog.collectAsState()
+    val allCards by viewModel.allCards.collectAsState()
+    val revealed by viewModel.revealed.collectAsState()
+    val answered by viewModel.answered.collectAsState()
 
     Column(modifier = Modifier.fillMaxSize()) {
         Row(
@@ -63,7 +60,6 @@ fun TrainYourStackScreen(onBack: () -> Unit = {}) {
         ) {
             if (showQuestion && currentQuestion != null) {
                 val (index, cardCode) = currentQuestion!!
-                // Find the selected card based on the answer
                 val selectedCard = allCards.find { it.code == answer }
                 val correctCard = allCards.find { it.code == cardCode }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -81,51 +77,21 @@ fun TrainYourStackScreen(onBack: () -> Unit = {}) {
                             painter = painterResource(imageCard?.drawableRes ?: R.drawable.brb),
                             contentDescription = imageCard?.code ?: "",
                             modifier = Modifier.size(100.dp)
-                                .combinedClickable( onClick = {
-                                        showDialog = true
-                                        revealed = false
-                                })
+                                .combinedClickable(onClick = { viewModel.onImageClick() })
                         )
                     }
                     Spacer(modifier = Modifier.height(16.dp))
                     if (!answered) {
                         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Button(onClick = {
-                                feedback = ""
-                                if (answer.isNotEmpty()) {
-                                    if (answer == cardCode) {
-                                        feedback = "Correct!"
-                                    } else {
-                                        feedback = "Incorrect. The correct card is ${Deck.toSymbol(correctCard!!)}."
-                                    }
-                                    answered = true
-                                } else {
-                                    feedback = "Please select a card."
-                                }
-                            }) {
+                            Button(onClick = { viewModel.onCheck() }) {
                                 Text("Check")
                             }
-                            Button(onClick = {
-                                feedback = ""
-                                if (stack.isNotEmpty()) {
-                                    answer = cardCode
-                                    revealed = true
-                                    answered = true
-                                }
-                            }) {
+                            Button(onClick = { viewModel.onReveal() }) {
                                 Text("Reveal")
                             }
                         }
                     } else {
-                        Button(onClick = {
-                            feedback = ""
-                            if (stack.isNotEmpty()) {
-                                currentQuestion = stack.random()
-                            }
-                            answer = ""
-                            revealed = false
-                            answered = false
-                        }) {
+                        Button(onClick = { viewModel.onNext() }) {
                             Text("Next")
                         }
                     }
@@ -140,7 +106,7 @@ fun TrainYourStackScreen(onBack: () -> Unit = {}) {
         }
     }
     if (showDialog) {
-        Dialog(onDismissRequest = { showDialog = false }) {
+        Dialog(onDismissRequest = { viewModel.onDialogDismiss() }) {
             Surface(
                 shape = MaterialTheme.shapes.medium,
                 tonalElevation = 8.dp,
@@ -159,9 +125,7 @@ fun TrainYourStackScreen(onBack: () -> Unit = {}) {
                             Column(
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 modifier = Modifier.clickable {
-                                    answer = card.code
-                                    showDialog = false
-                                    revealed = false
+                                    viewModel.onCardSelect(card.code)
                                 }
                             ) {
                                 Image(
@@ -173,16 +137,11 @@ fun TrainYourStackScreen(onBack: () -> Unit = {}) {
                         }
                     }
                     Spacer(modifier = Modifier.height(16.dp))
-                    Button(onClick = { showDialog = false }, modifier = Modifier.align(Alignment.End)) {
+                    Button(onClick = { viewModel.onDialogDismiss() }, modifier = Modifier.align(Alignment.End)) {
                         Text("Close")
                     }
                 }
             }
         }
-    }
-    LaunchedEffect(currentQuestion) {
-        answer = ""
-        revealed = false
-        answered = false
     }
 }
