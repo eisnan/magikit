@@ -22,7 +22,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 
 @Composable
 fun StatisticsScreen(
-    onBack: () -> Unit,
     viewModel: StatisticsViewModel = viewModel()
 ) {
     val stats by viewModel.stats.collectAsState()
@@ -30,14 +29,6 @@ fun StatisticsScreen(
         modifier = Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(8.dp),
-            horizontalArrangement = Arrangement.Start
-        ) {
-            Button(onClick = onBack) {
-                Text("Back")
-            }
-        }
         Text("Statistics", modifier = Modifier.padding(bottom = 16.dp))
         if (stats.isEmpty()) {
             Text("No cards have been picked yet.")

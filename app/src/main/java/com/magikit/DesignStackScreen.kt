@@ -39,7 +39,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 
 @Composable
 fun AllCardsScreen(
-    onBack: () -> Unit,
     viewModel: DesignStackViewModel = viewModel()
 ) {
     val spotCount = 52
@@ -54,14 +53,17 @@ fun AllCardsScreen(
 
     Column(modifier = Modifier.fillMaxSize()) {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Button(onClick = onBack, modifier = Modifier.padding(8.dp)) {
-                Text("Back")
-            }
             Button(
                 onClick = { viewModel.onFeelingLucky() },
                 modifier = Modifier.padding(8.dp)
             ) {
                 Text("I'm feeling lucky")
+            }
+            Button(
+                onClick = { viewModel.onResetStack() },
+                modifier = Modifier.padding(8.dp)
+            ) {
+                Text("Reset")
             }
             Button(
                 onClick = { viewModel.onSaveStack() },

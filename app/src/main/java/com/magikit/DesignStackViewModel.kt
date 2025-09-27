@@ -88,5 +88,11 @@ class DesignStackViewModel(application: Application) : AndroidViewModel(applicat
         return Card.entries.filter { card -> _assignedCards.value.none { it == card } }
             .sortedBy { it.newDeckOrderIndex }
     }
-}
 
+    fun onResetStack() {
+        viewModelScope.launch(Dispatchers.IO) {
+            stackDao.clearAll()
+            _assignedCards.value = List(spotCount) { null }
+        }
+    }
+}

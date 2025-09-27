@@ -60,7 +60,7 @@ class MainActivity : ComponentActivity() {
                             )
                         }
                         composable("all_cards") {
-                            AllCardsScreen(onBack = { navController.popBackStack() })
+                            AllCardsScreen()
                         }
                         composable(
                             "picked_card/{cardCode}",
@@ -69,15 +69,14 @@ class MainActivity : ComponentActivity() {
                             val cardCode = backStackEntry.arguments?.getString("cardCode")
                             PickedCardScreen(
                                 cardCode = cardCode,
-                                onBack = { navController.popBackStack() },
                                 onShowStatistics = { navController.navigate("statistics") }
                             )
                         }
                         composable("statistics") {
-                            StatisticsScreen(onBack = { navController.popBackStack() })
+                            StatisticsScreen()
                         }
                         composable("train_your_stack") {
-                            TrainYourStackScreen(onBack = { navController.popBackStack() })
+                            TrainYourStackScreen()
                         }
                     }
                 }

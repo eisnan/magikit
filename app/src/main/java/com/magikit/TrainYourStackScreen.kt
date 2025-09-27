@@ -33,7 +33,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 
 @Composable
 fun TrainYourStackScreen(
-    onBack: () -> Unit = {},
     viewModel: TrainYourStackViewModel = viewModel()
 ) {
     val currentQuestion by viewModel.currentQuestion.collectAsState()
@@ -46,14 +45,6 @@ fun TrainYourStackScreen(
     val answered by viewModel.answered.collectAsState()
 
     Column(modifier = Modifier.fillMaxSize()) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(8.dp),
-            horizontalArrangement = Arrangement.Start
-        ) {
-            Button(onClick = onBack) {
-                Text("Back")
-            }
-        }
         Box(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center

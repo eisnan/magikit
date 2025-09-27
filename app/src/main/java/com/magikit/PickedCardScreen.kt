@@ -26,7 +26,6 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 @Composable
 fun PickedCardScreen(
     cardCode: String?,
-    onBack: () -> Unit,
     onShowStatistics: () -> Unit
 ) {
     val viewModel: PickedCardViewModel = viewModel(
@@ -50,9 +49,6 @@ fun PickedCardScreen(
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Button(onClick = onBack, modifier = Modifier.padding(8.dp)) {
-                    Text("Back")
-                }
                 Button(onClick = { viewModel.toggleNotation() }, modifier = Modifier.padding(8.dp)) {
                     Text(
                         when (notation) {
